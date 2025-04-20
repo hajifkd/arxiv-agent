@@ -58,7 +58,7 @@ You and your colleagues check all the latest papers appearing on arXiv everyday.
 
         result = await Runner.run(
             agent,
-            input="chatbot-testチャンネルに挨拶を投稿してください。",
+            input="今日のhep-ph, hep-thの論文で面白そうなものをいくつか適当に程度ピックアップしてサマリーをchatbot-testチャンネルに投稿して。",
         )
         print(result.final_output)
 
