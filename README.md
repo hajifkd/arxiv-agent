@@ -17,9 +17,13 @@ AZURE_OPENAI_API_VERSION=xxx
 SLACK_BOT_TOKEN=xxx
 SLACK_TEAM_ID=xxx
 SLACK_CHANNEL_NAME=xxx
+EOF
 ```
 
 Finally, run the application:
 ```bash
 uv run python main.py
 ```
+
+# TODO
+- [ ] dockerize 
