@@ -197,28 +197,24 @@ async def main_async():
         print(f"Channel {slack_channel_name} not found.")
         return
     papers = await pick_interesting_papers("hep-ph")
-    discussions_en = []
-    discussions_ja = []
-    for paper in papers:
-        discussion = await discuss_paper(paper.arxiv_id)
-        discussions_en.append(discussion)
-        translation = await translate_paper_discussion(discussion)
-        discussions_ja.append(translation)
-    
+
     await post_message(slack_channel_id, f"""Interesting papers of {datetime.now().strftime('%Y-%m-%d')}
 {datetime.now().strftime('%Y年%m月%d日')}の注目論文
 (I'm sorry if your paper were missed! It's still under development.)""")
-    for paper, en, ja in zip(papers, discussions_en, discussions_ja):
+    
+    for paper in papers:
+        en = await discuss_paper(paper.arxiv_id)
+        ja = await translate_paper_discussion(en)
         header = f"""{paper.title} ({paper.primary_category})
 {", ".join(paper.authors) if len(paper.authors) < 4 else f"{paper.authors[0]} et al."}
 https://arxiv.org/abs/{paper.arxiv_id}
 - {paper.reason_en}
 - {paper.reason_ja}"""
         texts = [
-            f"Summary: {en.summary}",
+            f"Summary: {en.detailed_summary}",
             f"Criticize: {en.criticize}",
             f"Answer: {en.answer}",
-            f"Summary (Japanese): {ja.summary}",
+            f"Summary (Japanese): {ja.detailed_summary}",
             f"Criticize (Japanese): {ja.criticize}",
             f"Answer (Japanese): {ja.answer}",
         ]

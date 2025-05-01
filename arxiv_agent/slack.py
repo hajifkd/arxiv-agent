@@ -1,3 +1,4 @@
+import asyncio
 import os
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_TEAM_ID = os.getenv("SLACK_TEAM_ID")
@@ -34,6 +35,7 @@ async def post_messages_as_thread(channel_id: str, header: str, texts: list[str]
         )
         thread_ts = initial_post["ts"]
         for text in texts:
+            await asyncio.sleep(1)  # Rate limit handling
             await client.chat_postMessage(
                 channel=channel_id,
                 text=text,
