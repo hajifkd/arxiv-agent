@@ -12,9 +12,9 @@ dotenv.load_dotenv()
 set_tracing_disabled(disabled=True)
 
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME")
-AZURE_OPENAI_POSTDOC_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_POSTDOC_DEPLOYMENT_NAME")
-AZURE_OPENAI_STAFF_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_STAFF_DEPLOYMENT_NAME")
+AZURE_OPENAI_FAST_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_FAST_DEPLOYMENT_NAME")
+AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME")
+AZURE_OPENAI_DEEP_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEEP_DEPLOYMENT_NAME")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
 AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE")
 
@@ -26,10 +26,10 @@ def get_custom_client(deployment_name):
         default_query={"api-version": AZURE_OPENAI_API_VERSION},
     )
 
-student_client = get_custom_client(AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME)
-postdoc_client = get_custom_client(AZURE_OPENAI_POSTDOC_DEPLOYMENT_NAME)
-staff_client = get_custom_client(AZURE_OPENAI_STAFF_DEPLOYMENT_NAME)
-set_default_openai_client(student_client, use_for_tracing=False)
+fast_client = get_custom_client(AZURE_OPENAI_FAST_DEPLOYMENT_NAME)
+balanced_client = get_custom_client(AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME)
+deep_client = get_custom_client(AZURE_OPENAI_DEEP_DEPLOYMENT_NAME)
+set_default_openai_client(fast_client, use_for_tracing=False)
 
 class InterestingPapers(BaseModel):
     arxiv_ids: list[str]
@@ -69,8 +69,8 @@ async def discuss_paper(arxiv_mcp, arxiv_id) -> str:
 {RESEARCHER_PROMPT}
 {INTEREST_PAPER_PROMPT}""",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME,
-            openai_client=student_client,
+            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            openai_client=fast_client,
         ),
         mcp_servers=[arxiv_mcp],
     )
@@ -89,8 +89,8 @@ async def discuss_paper(arxiv_mcp, arxiv_id) -> str:
 {INTEREST_PAPER_PROMPT}
 You are attending a journal club meeting about a new paper. This is your first time to see the paper and listen to the summary of the paper. You are expected to be critical about the paper and the summary of the paper. You should ask questions about the paper. Even naive questions are welcome.""",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_POSTDOC_DEPLOYMENT_NAME,
-            openai_client=postdoc_client,
+            model=AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME,
+            openai_client=balanced_client,
         ),
     )
 
@@ -116,8 +116,8 @@ You are attending a journal club meeting about a new paper. You have already che
         #    openai_client=staff_client,
         #,
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME,
-            openai_client=student_client,
+            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            openai_client=fast_client,
         ),
     )
 
@@ -133,8 +133,8 @@ You are attending a journal club meeting about a new paper. You have already che
         name="translator",
         instructions="You are a translator. You are going to translate the following text into Japanese.",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME,
-            openai_client=student_client,
+            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            openai_client=fast_client,
         ),
     )
 
@@ -164,8 +164,8 @@ You and your colleagues check all the latest papers appearing on arXiv everyday.
 When you and your colleagues check the latest papers, you are not going to check too technical papers, but you are going to check papers that are interesting and have some new ideas. New experimental results are also interesting.
 When you check the latest papers, you should choose all the interesting papers. It doesn't matter if the number of papers is very large, small or even zero. You choose the interesting papers based on the title and abstract of the papers. You should not check the whole paper.""",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME,
-            openai_client=student_client,
+            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            openai_client=fast_client,
         ),
         mcp_servers=[arxiv_mcp, slack_mcp],
         output_type=InterestingPapers,
@@ -193,8 +193,8 @@ When you check the latest papers, you should choose all the interesting papers. 
         name="Slack agent",
         instructions="You are an AI assistant. You are going to send the following message to Slack.",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_STUDENT_DEPLOYMENT_NAME,
-            openai_client=student_client,
+            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            openai_client=fast_client,
         ),
         mcp_servers=[slack_mcp],
         )
