@@ -9,6 +9,15 @@ from .connection import (
     balanced_client,
     deep_client,
 )
+from .arxiv import (
+    today_arxiv,
+    download_arxiv_paper
+)
+from .slack import (
+    get_channel_id,
+    post_messages_as_thread,
+    post_message,
+)
 
 
 class InterestingPaper(BaseModel):
@@ -140,100 +149,36 @@ Answers to the questions:
     translation = translation_result.final_output
     return translation
 
-async def agent_orchestration(arxiv_mcp, slack_mcp):
+async def agent_orchestration():
     paper_pick_agent = Agent(
         name="Elementary particle physics graduate student",
         instructions=f"""{GRADUATE_STUDENT_PROMPT}
 {RESEARCHER_PROMPT}
 {INTEREST_PAPER_PROMPT}
 You and your colleagues check all the latest papers appearing on arXiv everyday.
-When you and your colleagues check the latest papers, you are not going to check too technical papers, but you are going to check papers that are interesting and have some new ideas. New experimental results are also interesting.
-When you check the latest papers, you should choose all the interesting papers. It doesn't matter if the number of papers is very large, small or even zero. You choose the interesting papers based on the title and abstract of the papers. You should not check the whole paper.""",
+When you and your colleagues check the latest papers, you are not going to check too technical papers, but you are going to check papers that are interesting and have some new ideas. New experimental results are also interesting. You choose the interesting papers based on the title, abstract and the authors of the papers.""",
         model=OpenAIChatCompletionsModel(
             model='',
             openai_client=fast_client,
         ),
-        mcp_servers=[arxiv_mcp, slack_mcp],
         output_type=list[InterestingPaper],
     )
+
+    print("Fetching the latest papers from arXiv...")
+    today_papers = today_arxiv("hep-ph") 
 
     print("Checking the latest papers on arXiv...")
     result = await Runner.run(
         paper_pick_agent,
-        input=f"""Please check the latest papers on arXiv in hep-ph and hep-th and choose interesting papers.
-        Please post the rough summary of the paper you choose on #chatbot-test channel on Slack in Japanese. The format of the summary is like:
-        =====
-        タイトル: {{title}}
-        著者: {{authors}}
-        {{summary}}
-        {{url}}
-        =====
-        Repeat the above format for all the papers you choose.
-        In the beginning of the message, please write "{datetime.now().strftime("%Y/%m/%d")}のおすすめ論文" to indicate the date of the message.
-        Respond with the arXiv IDs of the interesting papers. The format of the arXiv IDs is like: 2501.00001""",
-    )
+        input=f"""from the following list of papers, please choose the interesting papers:
+{today_papers}""",)
 
     print("The following papers are chosen as interesting papers:")
     print(result.final_output)
     return
 
-    async def send_to_slack(arxiv_id):
-        summary = await discuss_paper(arxiv_mcp, arxiv_id)
-        slack_agent = Agent(
-        name="Slack agent",
-        instructions="You are an AI assistant. You are going to send the following message to Slack.",
-        model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
-            openai_client=fast_client,
-        ),
-        mcp_servers=[slack_mcp],
-        )
-        print("Sending message to Slack...")
-        await Runner.run(
-            slack_agent,
-            input=f"""Please send the following message to Slack channel #chatbot-test
-You **must** send all information in the message. It is not allowed to send only part of the message. You MUST NOT truncate the information. Your message must include all the information I will provide.
-You will be unable to see the message reply on the Slack channel. Therefore, you should not ask for any feedback or comments from the Slack channel.
-First, you should post the summary of the whole message I provide below. Then, you should use the thread to post the more detailed summary of the paper and discussion, the comments and feedback.
-You must attach the whole message I will provide in the following as an attachment file to the message.
-The attachment file should be named "paper_summary.md", and the file should be in markdown format.
-The attachment file should include the *whole message* I provide below. The readers never mind the length of the file. They only care whether the file includes all the information.
-All the messages should be in Japanese.
-Here is the summary and discussion about the paper: 
-{summary}"""
-        )
-
-    #paper_submissions = [send_to_slack(arxiv_id, index) for index, arxiv_id in enumerate(result.final_output.arxiv_ids)]
-    # collect all the results into a list of strings
-    #await asyncio.gather(*paper_submissions)
-
-    print(f"Collecting the results of {len(result.final_output.arxiv_ids)} papers...")
-    # if I do it in parallel, it's too fast and the API rate limit is exceeded
-    for arxiv_id in result.final_output.arxiv_ids:
-        print(f"Checking the paper {arxiv_id}...")
-        await send_to_slack(arxiv_id)
-    print("All done.")
-
 async def main_async():
-    async with MCPServerStdio(
-        name="arXiv search",
-        params={
-            "command": "uvx",
-            "args": ["--from", "git+https://github.com/hajifkd/arxiv-mcp-server", "arxiv-mcp-server"]
-        },
-    ) as arxiv_mcp, \
-    MCPServerStdio(
-        name="Slack server",
-        params={
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-slack"],
-            "env": {
-                "SLACK_BOT_TOKEN": os.getenv("SLACK_BOT_TOKEN"),
-                "SLACK_TEAM_ID": os.getenv("SLACK_TEAM_ID"),
-            }
-        },
-    ) as slack_mcp:
-        await agent_orchestration(arxiv_mcp, slack_mcp)
+    await agent_orchestration()
 
 def main():
     asyncio.run(main_async())

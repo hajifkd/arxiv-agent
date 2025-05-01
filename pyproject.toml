@@ -5,10 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "aiohttp>=3.11.18",
+    "arxiv-mcp-server",
     "openai>=1.75.0",
     "openai-agents>=0.0.11",
     "python-dotenv>=1.1.0",
+    "slack-sdk>=3.35.0",
 ]
 
 [project.scripts]
 post-arxiv-summary = "main:main"
+
+[tool.uv.sources]
+arxiv-mcp-server = { git = "https://github.com/hajifkd/arxiv-mcp-server" }
