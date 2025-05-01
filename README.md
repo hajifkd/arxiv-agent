@@ -22,7 +22,7 @@ EOF
 
 Finally, run the application:
 ```bash
-uv run python main.py
+uv run python -m arxiv_agent
 ```
 
 # TODO
