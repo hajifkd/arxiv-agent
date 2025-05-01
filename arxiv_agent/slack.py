@@ -29,9 +29,11 @@ async def post_messages_as_thread(channel_id: str, header: str, texts: list[str]
     Post a message as a thread in a given channel.
     """
     try:
+        # set unfurl_links to false
         initial_post = await client.chat_postMessage(
             channel=channel_id,
             text=header,
+            unfurl_links=False,
         )
         thread_ts = initial_post["ts"]
         for text in texts:
