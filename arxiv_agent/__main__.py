@@ -1,38 +1,24 @@
-from openai import AsyncOpenAI
-from agents import set_default_openai_client, set_tracing_disabled, OpenAIChatCompletionsModel, Agent, Runner, ItemHelpers
+from agents import OpenAIChatCompletionsModel, Agent, Runner
 from agents.mcp import MCPServerStdio
-import dotenv
-import os
 import asyncio
+import os
 from datetime import datetime
 from pydantic import BaseModel
+from .connection import (
+    fast_client,
+    balanced_client,
+    deep_client,
+)
 
-dotenv.load_dotenv()
 
-set_tracing_disabled(disabled=True)
+class InterestingPaper(BaseModel):
+    arxiv_id: str
+    title: str
+    authors: list[str]
+    reason_en: str
+    reason_ja: str
+    primary_category: str
 
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_OPENAI_FAST_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_FAST_DEPLOYMENT_NAME")
-AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME")
-AZURE_OPENAI_DEEP_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEEP_DEPLOYMENT_NAME")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION")
-AZURE_OPENAI_API_BASE = os.getenv("AZURE_OPENAI_API_BASE")
-
-def get_custom_client(deployment_name):
-    return AsyncOpenAI(
-        api_key=AZURE_OPENAI_API_KEY,
-        base_url=f"{AZURE_OPENAI_API_BASE}openai/deployments/{deployment_name}",
-        default_headers={"api-key": AZURE_OPENAI_API_KEY},
-        default_query={"api-version": AZURE_OPENAI_API_VERSION},
-    )
-
-fast_client = get_custom_client(AZURE_OPENAI_FAST_DEPLOYMENT_NAME)
-balanced_client = get_custom_client(AZURE_OPENAI_BALANCED_DEPLOYMENT_NAME)
-deep_client = get_custom_client(AZURE_OPENAI_DEEP_DEPLOYMENT_NAME)
-set_default_openai_client(fast_client, use_for_tracing=False)
-
-class InterestingPapers(BaseModel):
-    arxiv_ids: list[str]
 
 GRADUATE_STUDENT_PROMPT = """You are a graduate student in elementary particle physics theory.
 You are suppose to assist other senior researchers in your group. As a student, you are not expected to know everything, but you are expected to be able to find the information and summarize it."""
@@ -164,11 +150,11 @@ You and your colleagues check all the latest papers appearing on arXiv everyday.
 When you and your colleagues check the latest papers, you are not going to check too technical papers, but you are going to check papers that are interesting and have some new ideas. New experimental results are also interesting.
 When you check the latest papers, you should choose all the interesting papers. It doesn't matter if the number of papers is very large, small or even zero. You choose the interesting papers based on the title and abstract of the papers. You should not check the whole paper.""",
         model=OpenAIChatCompletionsModel(
-            model=AZURE_OPENAI_FAST_DEPLOYMENT_NAME,
+            model='',
             openai_client=fast_client,
         ),
         mcp_servers=[arxiv_mcp, slack_mcp],
-        output_type=InterestingPapers,
+        output_type=list[InterestingPaper],
     )
 
     print("Checking the latest papers on arXiv...")
@@ -186,6 +172,10 @@ When you check the latest papers, you should choose all the interesting papers. 
         In the beginning of the message, please write "{datetime.now().strftime("%Y/%m/%d")}のおすすめ論文" to indicate the date of the message.
         Respond with the arXiv IDs of the interesting papers. The format of the arXiv IDs is like: 2501.00001""",
     )
+
+    print("The following papers are chosen as interesting papers:")
+    print(result.final_output)
+    return
 
     async def send_to_slack(arxiv_id):
         summary = await discuss_paper(arxiv_mcp, arxiv_id)
