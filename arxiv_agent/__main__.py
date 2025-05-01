@@ -75,7 +75,7 @@ async def discuss_paper(arxiv_id) -> PaperDiscussion:
             openai_client=fast_client,
         )
     )
-    print(f"Summarizing {arxiv_id}...")
+    logging.info(f"Summarizing {arxiv_id}...")
     summary_result = await Runner.run(
         paper_summarize_agent,
         input=f"""Please read the following paper and tell me the details of the paper. You should clarify what the paper is about, what the main motivation of the paper is, what the main results of the paper are, and what the main conclusions of the paper are. You should also clarify what is the main new idea of the paper and stress the importance of the paper. When you use some technical terms, such as some ideas proposed by some people, you should clarify what the terms mean. The content of the paper is following:
@@ -94,7 +94,7 @@ async def discuss_paper(arxiv_id) -> PaperDiscussion:
         ),
     )
 
-    print("Criticizing the summary of the paper...")
+    logging.info("Criticizing the summary of the paper...")
     criticize_result = await Runner.run(
         critial_thinking_agent,
         input=f"""You are attending a journal club meeting about a new paper. This is your first time to see the paper and listen to the summary of the paper. Provide your critical thinking about the following summary of the paper. You should provide questions about the summary of the paper. Be critical and skeptical about the content and claims of the paper. You are encouraged to ask not only scientific questions, but also naive questions, such as "It is not clear to me what the author means by X". You can also ask questions about the paper itself, such as "I don't understand why the author is interested in this topic.". You should start from elementary and basic questions, and then move to more advanced questions so that other audiences should understand the content better. You should also provide your own understanding of the paper and your own opinion about the paper.
@@ -109,14 +109,14 @@ Summary of the paper:
         instructions=f"""{STAFF_PROMPT}
 {RESEARCHER_PROMPT}
 {INTEREST_PAPER_PROMPT}
-You are attending a journal club meeting about a new paper. You have already checked the paper and have your own opinion about the paper. Although you are critical about the paper, you are expected to help the summary of the paper by the graduate student and answer the questions and criticism of the postdoc. You should also provide constructive feedback to improve the understanding of the paper.""",
+You are attending a journal club meeting about a new paper. You have already checked the paper and have your own opinion about the paper. Although you are critical about the paper, you are expected to help the summary of the paper by the graduate student and answer the questions and criticism of the postdoc. Provide constructive feedback to improve the understanding of the paper. Provide your own opinion and understanding of the paper briefly based on the discussion.""",
         model=OpenAIChatCompletionsModel(
             model='',
             openai_client=fast_client,
         ),
     )
 
-    print("Answering the questions and feedback...")
+    logging.info("Answering the questions and feedback...")
     answer_result = await Runner.run(
         answer_agent,
         input=paper_and_summary,
@@ -142,7 +142,7 @@ You are a faithful and professional translator. You are going to translate the f
         output_type=PaperDiscussion
     )
 
-    print("Translating into Japanese...")
+    logging.info("Translating into Japanese...")
     translation_result = await Runner.run(
         translator,
         input=f"""Please translate the following summary of the paper, criticize and answers to the criticize into Japanese. Never mind the length of the text. You must translate all the text I provide below. You must not omit any information.
@@ -194,29 +194,35 @@ async def main_async():
     slack_channel_name = os.getenv("SLACK_CHANNEL_NAME")
     slack_channel_id = await get_channel_id(slack_channel_name)
     if slack_channel_id is None:
-        print(f"Channel {slack_channel_name} not found.")
+        logging.error(f"Channel {slack_channel_name} not found.")
         return
     papers = await pick_interesting_papers("hep-ph")
 
-    await post_message(slack_channel_id, f"""Interesting papers of {datetime.now().strftime('%Y-%m-%d')}
-{datetime.now().strftime('%Y年%m月%d日')}の注目論文
-(I'm sorry if your paper were missed! It's still under development.)""")
+    await post_message(slack_channel_id, f"""Interesting papers of {datetime.now().strftime('%Y-%m-%d')} :tada:
+{datetime.now().strftime('%Y年%m月%d日')}の注目論文 :tada:
+(I'm sorry if your paper was missed! It's still under development.)""")
     
     for paper in papers:
-        en = await discuss_paper(paper.arxiv_id)
-        ja = await translate_paper_discussion(en)
+        try:
+            en = await discuss_paper(paper.arxiv_id)
+            ja = await translate_paper_discussion(en)
+        except Exception as e:
+            logging.error(f"Error processing {paper.arxiv_id}: {e}")
+            await post_message(slack_channel_id, f"Error processing {paper.arxiv_id}: {e}")
+            continue
         header = f"""{paper.title} ({paper.primary_category})
 {", ".join(paper.authors) if len(paper.authors) < 4 else f"{paper.authors[0]} et al."}
 https://arxiv.org/abs/{paper.arxiv_id}
 - {paper.reason_en}
 - {paper.reason_ja}"""
         texts = [
-            f"Summary: {en.detailed_summary}",
-            f"Criticize: {en.criticize}",
-            f"Answer: {en.answer}",
-            f"Summary (Japanese): {ja.detailed_summary}",
-            f"Criticize (Japanese): {ja.criticize}",
-            f"Answer (Japanese): {ja.answer}",
+            "English follows Japanese.",
+            f"Summary (Japanese):\n{ja.detailed_summary}",
+            f"Criticize (Japanese):\n{ja.criticize}",
+            f"Answer (Japanese):\n{ja.answer}",
+            f"Summary:\n{en.detailed_summary}",
+            f"Criticize:\n{en.criticize}",
+            f"Answer:\n{en.answer}",
         ]
         await post_messages_as_thread(slack_channel_id, header, texts)
 
