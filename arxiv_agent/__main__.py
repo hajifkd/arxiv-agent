@@ -30,7 +30,7 @@ class InterestingPaper(BaseModel):
     primary_category: str
 
 class PaperDiscussion(BaseModel):
-    summary: str
+    detailed_summary: str
     criticize: str
     answer: str
 
@@ -125,7 +125,7 @@ You are attending a journal club meeting about a new paper. You have already che
     answer = answer_result.final_output
 
     return PaperDiscussion(
-        summary=summary,
+        detailed_summary=summary,
         criticize=criticize,
         answer=answer,
     )
@@ -146,8 +146,8 @@ You are a faithful and professional translator. You are going to translate the f
     translation_result = await Runner.run(
         translator,
         input=f"""Please translate the following summary of the paper, criticize and answers to the criticize into Japanese. Never mind the length of the text. You must translate all the text I provide below. You must not omit any information.
-Summary of the paper:
-{paper_discussion.summary}
+Detailed summary of the paper:
+{paper_discussion.detailed_summary}
 Criticize:
 {paper_discussion.criticize}
 Answers to the criticize:
@@ -205,10 +205,13 @@ async def main_async():
         translation = await translate_paper_discussion(discussion)
         discussions_ja.append(translation)
     
-    await post_message(slack_channel_id, f"""Interesting papers of {datetime.now().strftime('%Y-%m-%d')}/{datetime.now().strftime('%Y年%m月%d日')}の注目論文
+    await post_message(slack_channel_id, f"""Interesting papers of {datetime.now().strftime('%Y-%m-%d')}
+{datetime.now().strftime('%Y年%m月%d日')}の注目論文
 (I'm sorry if your paper were missed! It's still under development.)""")
     for paper, en, ja in zip(papers, discussions_en, discussions_ja):
-        header = f"""{paper.arxiv_id}: {paper.title} ({paper.primary_category})
+        header = f"""{paper.title} ({paper.primary_category})
+{", ".join(paper.authors) if len(paper.authors) < 4 else f"{paper.authors[0]} et al."}
+https://arxiv.org/abs/{paper.arxiv_id}
 - {paper.reason_en}
 - {paper.reason_ja}"""
         texts = [
